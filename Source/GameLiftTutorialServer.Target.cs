@@ -3,6 +3,7 @@
 using UnrealBuildTool;
 using System.Collections.Generic;
 
+[SupportedPlatforms(UnrealPlatformClass.Server)]
 public class GameLiftTutorialServerTarget : TargetRules
 {
 	public GameLiftTutorialServerTarget(TargetInfo Target) : base(Target)
