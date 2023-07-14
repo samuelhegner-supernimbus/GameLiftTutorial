@@ -1,5 +1,4 @@
-
-#include "GameLiftTutorialGameMode.h"
+ #include "GameLiftTutorialGameMode.h"
 
 #include "GameLiftServerSDK.h"
 #include "GameLiftTutorialCharacter.h"
@@ -14,6 +13,7 @@ AGameLiftTutorialGameMode::AGameLiftTutorialGameMode()
 	UE_LOG(GameMode, Log, TEXT("AGameLiftTutorialGameMode()"));
 	// set default pawn class to our Blueprinted character
 	static ConstructorHelpers::FClassFinder<APawn> PlayerPawnBPClass(TEXT("/Game/ThirdPerson/Blueprints/BP_ThirdPersonCharacter"));
+	
 	if (PlayerPawnBPClass.Class != NULL)
 	{
 		DefaultPawnClass = PlayerPawnBPClass.Class;
@@ -27,75 +27,99 @@ void AGameLiftTutorialGameMode::BeginPlay()
 {
 	UE_LOG(GameMode, Log, TEXT("BeginPlay()"));
 	Super::BeginPlay();
-	
+
 #if WITH_GAMELIFT
 	InitGameLift();
 #endif
 }
 
+
 void AGameLiftTutorialGameMode::InitGameLift()
 {
-	UE_LOG(GameLift, Warning, TEXT("InitGameLift()"));
-	gameLiftSdkModule = &FModuleManager::LoadModuleChecked<FGameLiftServerSDKModule>(FName("GameLiftServerSDK"));
+	UE_LOG(GameLift, Log, TEXT("InitGameLift()"))
+
+	serverParameters = new FServerParameters();
 	
-	//Call InitSDK to establish a local connection with the GameLift agent to enable further communication.
-	UE_LOG(GameLift, Warning, TEXT("Initialising the SDK..."));
-	const auto initSdkOutcome = gameLiftSdkModule->InitSDK(*serverParameters);
+	FParse::Value(FCommandLine::Get(), TEXT("-authtoken="), serverParameters->m_authToken);
+	FParse::Value(FCommandLine::Get(), TEXT("-hostid="), serverParameters->m_hostId);
+	FParse::Value(FCommandLine::Get(), TEXT("-fleetid="), serverParameters->m_fleetId);
+	FParse::Value(FCommandLine::Get(), TEXT("-websocketurl="), serverParameters->m_webSocketUrl);
+	
+	serverParameters->m_processId = FString::Printf(TEXT("%d"), GetCurrentProcessId());
+	
+	UE_LOG(GameLift, Log, TEXT("Server Parameters: "));
+	UE_LOG(GameLift, Log, TEXT("------------------------------------------------"));
+	UE_LOG(GameLift, Log, TEXT("Host Id: %s"), *serverParameters->m_hostId);
+	UE_LOG(GameLift, Log, TEXT("Fleet Id: %s"), *serverParameters->m_fleetId);
+	UE_LOG(GameLift, Log, TEXT("Process Id: %s"), *serverParameters->m_processId);
+	UE_LOG(GameLift, Log, TEXT("Web Socket Url: %s"), *serverParameters->m_webSocketUrl);
+	UE_LOG(GameLift, Log, TEXT("Auth Token: %s"), *serverParameters->m_authToken);
+	UE_LOG(GameLift, Log, TEXT("------------------------------------------------"));
 
-	if(initSdkOutcome.IsSuccess())
+	UE_LOG(GameLift, Log, TEXT("Initializing the GameLift Server..."));
+	gameLiftSdkModule = &FModuleManager::LoadModuleChecked<FGameLiftServerSDKModule>(FName("GameLiftServerSDK"));
+	const FGameLiftGenericOutcome initSdkOutcome = gameLiftSdkModule->InitSDK(*serverParameters);
+
+	if (initSdkOutcome.IsSuccess())
 	{
-		UE_LOG(GameLift, Warning, TEXT("Initialising the SDK was successful"));
-
-		params = new FProcessParameters();
-
-		// Basic Game session started function
-		auto onGameSession = [=](Aws::GameLift::Server::Model::GameSession gameSession)
-		{
-			UE_LOG(GameLift, Warning, TEXT("Game session is initialising..."));
-			gameLiftSdkModule->ActivateGameSession();
-			UE_LOG(GameLift, Warning, TEXT("Game session is initialised sucessfully and session is active"));
-		};
-
-		// Basic termination function
-		auto onTerminate = [=]()
-		{
-			UE_LOG(GameLift, Warning, TEXT("Game Server Process is terminating..."));
-			ShutDownGameLift();
-		};
-
-		// Basic health check function
-		auto onHealthCheck = []()
-		{
-			UE_LOG(GameLift, Warning, TEXT("Performing Health Check..."));
-			return true;
-		};
-
-		// Basic logParameters setup
-		TArray<FString> logfiles;
-		logfiles.Add(TEXT("aLogFile.txt"));
-
-		// Configuring Process Parameters
-		params->OnStartGameSession.BindLambda(onGameSession);
-		params->OnTerminate.BindLambda(onTerminate);
-		params->OnHealthCheck.BindLambda(onHealthCheck);
-		params->port = 7777;
-		params->logParameters = logfiles;
-
-		UE_LOG(GameLift, Warning, TEXT("Calling Process Ready..."));
-		const auto readyOutcome = gameLiftSdkModule->ProcessReady(*params);
-
-		if (readyOutcome.IsSuccess())
-		{
-			UE_LOG(GameLift, Warning, TEXT("Process successfully readied up. Ready for players to join"));
-		}
-		else
-		{
-			UE_LOG(GameLift, Error, TEXT("Unable to ready up the process. An error occurred"));
-		}
+		UE_LOG(GameLift, Log, TEXT("InitSDK succeeded"));
 	}
-}
+	else
+	{
+		UE_LOG(GameLift, Log, TEXT("ERROR: InitSDK failed"));
+		const FGameLiftError gameLiftError = initSdkOutcome.GetError();
+		UE_LOG(GameLift, Log, TEXT("ERROR: %s"), *gameLiftError.m_errorMessage);
+		return;
+	}
 
-void AGameLiftTutorialGameMode::ShutDownGameLift()
-{
-	gameLiftSdkModule->ProcessEnding();
+	// Define functions to handle GameLift events: OnStartGameSession, OnTerminate, OnHealthCheck
+	auto onGameSession = [=](Aws::GameLift::Server::Model::GameSession gameSession)
+	{
+		FString gameSessionId = FString(gameSession.GetGameSessionId());
+		UE_LOG(GameLift, Log, TEXT("GameSession Initializing: %s..."), *gameSessionId);
+		gameLiftSdkModule->ActivateGameSession();
+	};
+
+	auto onTerminate = [=]()
+	{
+		UE_LOG(GameLift, Log, TEXT("Game Server Process is terminating..."));
+		gameLiftSdkModule->ProcessEnding();
+	};
+
+	auto onHealthCheck = []()
+	{
+		UE_LOG(GameLift, Log, TEXT("Performing Health Check..."));
+		return true;
+	};
+
+	// Define log file location
+	TArray<FString> logfiles;
+	logfiles.Add(TEXT("GameLiftTutorial/Saved/Logs/GameLiftTutorial"));
+
+	// Define server port
+	const auto worldPort = GetWorld()->URL.Port;
+	UE_LOG(GameLift, Log, TEXT("World Port: %d"), worldPort);
+
+	// Assign process parameters
+	processParameters = new FProcessParameters();
+	processParameters->OnStartGameSession.BindLambda(onGameSession);
+	processParameters->OnTerminate.BindLambda(onTerminate);
+	processParameters->OnHealthCheck.BindLambda(onHealthCheck);
+	processParameters->port = worldPort;
+	processParameters->logParameters = logfiles;
+
+	UE_LOG(GameLift, Log, TEXT("Calling Process Ready..."));
+	FGameLiftGenericOutcome processReadyOutcome = gameLiftSdkModule->ProcessReady(*processParameters);
+	if (processReadyOutcome.IsSuccess())
+	{
+		UE_LOG(GameLift, Log, TEXT("Process Ready Succeded"));
+	}
+	else
+	{
+		UE_LOG(GameLift, Log, TEXT("ERROR: Process Ready Failed"));
+		const auto processReadyError = processReadyOutcome.GetError();
+		UE_LOG(GameLift, Log, TEXT("ERROR: %s"), *processReadyError.m_errorMessage);
+	}
+	
+	UE_LOG(GameLift, Log, TEXT("Finished initialising GameLift"));
 }

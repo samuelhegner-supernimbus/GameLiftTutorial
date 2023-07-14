@@ -25,10 +25,9 @@ protected:
 	
 private:
 	void InitGameLift();
-	void ShutDownGameLift();
 
 	FGameLiftServerSDKModule* gameLiftSdkModule;
-	FProcessParameters* params;
+	FProcessParameters* processParameters;
 	FServerParameters* serverParameters;
 };
 
