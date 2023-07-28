@@ -8,7 +8,23 @@ public class GameLiftTutorial : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "HeadMountedDisplay", "EnhancedInput", "GameLiftServerSDK" });
-		PrivateDependencyModuleNames.AddRange(new string[] {"GameLiftServerSDK" });
+		PublicDependencyModuleNames.AddRange(new string[]
+		{
+			"Core",
+			"CoreUObject",
+			"Engine",
+			"InputCore",
+			"HeadMountedDisplay",
+			"EnhancedInput",
+			"GameLiftServerSDK"
+		});
+		
+		PrivateDependencyModuleNames.AddRange(new string[]
+		{
+			"GameLiftServerSDK",
+			"JsonUtilities",
+			"HTTP",
+			"Json"
+		});
 	}
 }
