@@ -32,15 +32,16 @@ protected:
 
 private:
 	void InitGameLift();
-	void CallGameLiftProcessReady();
 	void InitBrainCloud();
 
-	void ShutDownGameLift();
-	void ShutDownBrainCloud();
-	void ShutDownServer(const FString& reason);
+	void ShutDownGameLift() const;
+	void ShutDownBrainCloud() const;
+	void ShutDownServer(const FString& reason) const;
 
 	void StartTimer();
 	void CheckDisconnectedPlayers();
+	void EmptyServerTimeout() const;
+
 
 	// GameLift sdk reference and parameters that the sdk is initialised with
 	FGameLiftServerSDKModule* gameLiftSdkModule;

@@ -26,5 +26,11 @@
 			"Name": "BCClient",
 			"Enabled": true
 		}
+	],
+	"Plugins": [
+		{
+			"Name": "GameLiftServerSDK",
+			"Enabled": true
+		}
 	]
 }

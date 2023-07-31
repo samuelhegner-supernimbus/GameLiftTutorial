@@ -114,7 +114,7 @@ void AGameLiftTutorialGameMode::InitGameLift()
 			}
 			else
 			{
-				UE_LOG(GameLift, Warning, TEXT("Gamelift - Unused GameProperty - %s:%s"), *key, *val);
+				UE_LOG(GameLift, Warning, TEXT("Unused GameProperty - %s:%s"), *key, *val);
 			}
 		}
 
@@ -149,7 +149,7 @@ void AGameLiftTutorialGameMode::InitGameLift()
 	TArray<FString> logfiles;
 	logfiles.Add(TEXT("GameLiftTutorial/Saved/Logs/GameLiftTutorial"));
 
-	// Define server port
+	// Define server port. It is important that this isn't hard coded, since we will want to specify the port via command line args
 	const auto worldPort = GetWorld()->URL.Port;
 	UE_LOG(GameLift, Log, TEXT("World Port: %d"), worldPort);
 
@@ -161,15 +161,11 @@ void AGameLiftTutorialGameMode::InitGameLift()
 	processParameters->port = worldPort;
 	processParameters->logParameters = logfiles;
 
-	CallGameLiftProcessReady();
-
-	UE_LOG(GameLift, Log, TEXT("Finished initialising GameLift"));
-}
-
-void AGameLiftTutorialGameMode::CallGameLiftProcessReady()
-{
 	UE_LOG(GameLift, Log, TEXT("Calling Process Ready..."));
-	FGameLiftGenericOutcome processReadyOutcome = gameLiftSdkModule->ProcessReady(*processParameters);
+
+	// Notify the GameLift service that the server process is ready to accept game sessions
+	auto processReadyOutcome = gameLiftSdkModule->ProcessReady(*processParameters);
+	
 	if (processReadyOutcome.IsSuccess())
 	{
 		UE_LOG(GameLift, Log, TEXT("Process Ready Succeded"));
@@ -180,48 +176,61 @@ void AGameLiftTutorialGameMode::CallGameLiftProcessReady()
 		const auto processReadyError = processReadyOutcome.GetError();
 		UE_LOG(GameLift, Log, TEXT("ERROR: %s"), *processReadyError.m_errorMessage);
 	}
+	
+	UE_LOG(GameLift, Log, TEXT("Finished initialising GameLift"));
 }
 
 void AGameLiftTutorialGameMode::InitBrainCloud()
 {
+	// Initialise the BrainCloud server to server SDK
 	UE_LOG(BrainCloud, Log, TEXT("InitBrainCloud()"))
 
 	if (GetNetMode() != NM_DedicatedServer) return;
 
 	if (brainCloudReady == false)
 	{
+		// Set the required BrainCloud details we received from the GameLift game session GameProperties
+		UE_LOG(BrainCloud, Warning, TEXT("Creating Server to Server wrapper..."));
 		pS2S = MakeShareable(new UBrainCloudS2S(appId, serverName, serverSecret, "https://api.braincloudservers.com/s2sdispatcher", true));
 		pS2S->setLogEnabled(true);
 	}
 
 	brainCloudReady = true;
 
+	// authenticate with BrainCloud
+	UE_LOG(BrainCloud, Warning, TEXT("Authenticating..."));
 	pS2S->authenticate();
+	UE_LOG(BrainCloud, Warning, TEXT("Authenticated successfully"));
 
+	// Request the data associated with the lobby that will be hosted on the server
 	pS2S->request(
 		"{\"service\":\"lobby\",\"operation\":\"GET_LOBBY_DATA\",\"data\":{\"lobbyId\":\"" + lobbyId + "\"}}", [this](const FString& result)
 		{
 			UE_LOG(BrainCloud, Warning, TEXT("BrainCloud - GET_LOBBY_DATA - %s"), *result);
+			// Once we have received the lobby data, we can notify BrainCloud that the room is ready and players are allowed to join
 			pS2S->request("{\"service\":\"lobby\",\"operation\":\"SYS_ROOM_READY\",\"data\":{\"lobbyId\":\"" + lobbyId + "\"}}", nullptr);
 		});
 }
 
-void AGameLiftTutorialGameMode::ShutDownGameLift()
+void AGameLiftTutorialGameMode::ShutDownGameLift() const
 {
+	// Notify the GameLift service, that we are shutting down the server. This will terminate the game session associated with this process
 	if(gameSessionStarted == false) return;
 	
 	gameLiftSdkModule->ProcessEnding();
 }
 
-void AGameLiftTutorialGameMode::ShutDownBrainCloud()
+void AGameLiftTutorialGameMode::ShutDownBrainCloud() const
 {
+	// Make sure to notify BrainCloud that a give lobby is stopped
 	if (brainCloudReady == false) return;
 
 	pS2S->request("{\"service\":\"lobby\",\"operation\":\"SYS_ROOM_STOPPED\",\"data\":{\"lobbyId\":\"" + lobbyId + "\"}}", nullptr);
 }
 
-void AGameLiftTutorialGameMode::ShutDownServer(const FString& reason)
+void AGameLiftTutorialGameMode::ShutDownServer(const FString& reason) const
 {
+	// Gracefully shuts down the server process. GameLift will then recycle the process and a new game session can be started
 	RequestEngineExit(reason);
 }
 
@@ -233,31 +242,41 @@ void AGameLiftTutorialGameMode::StartTimer()
 
 void AGameLiftTutorialGameMode::CheckDisconnectedPlayers()
 {
+	// If we aren't in an active game session, we don't need to worry about disconnected players
 	if(gameSessionStarted == false) return;
-	
+
+	// If there aren't any players connected, count up the timeout timer. If the timer reaches the threshold, call the Timeout func
 	if (playerCount <= 0)
 	{
 		if (timerCounter >= secondsToShutDownEmptyServer)
 		{
-			ShutDownGameLift();
-			ShutDownBrainCloud();
-			ShutDownServer("All players disconnected. GameSession is complete. Shutting down server...");
+			EmptyServerTimeout();
 		}
+		
 		UE_LOG(GameMode, Log, TEXT("No players connected, shutting down game session in: %d"), secondsToShutDownEmptyServer-timerCounter);
 		timerCounter++;
 	}
 	else
 	{
+		// There are players on the server, reset the timer
 		timerCounter = 0;
 	}
 }
 
+void AGameLiftTutorialGameMode::EmptyServerTimeout() const
+{
+	// When the empty server timeout is reached, shut down GameLift, BrainCloud and finally the server
+	ShutDownGameLift();
+	ShutDownBrainCloud();
+	ShutDownServer("All players disconnected. GameSession is complete. Shutting down server...");
+}
+
 void AGameLiftTutorialGameMode::Tick(float DeltaSeconds)
 {
-	// We need to run the Server to server callbacks with the BrainCloud sdk
 	Super::Tick(DeltaSeconds);
 #if WITH_GAMELIFT
 
+	// We need to run the Server to server callbacks with the BrainCloud sdk
 	if (brainCloudReady == false) return;
 
 	if (pS2S.IsValid()) pS2S->runCallbacks();
@@ -266,12 +285,17 @@ void AGameLiftTutorialGameMode::Tick(float DeltaSeconds)
 
 void AGameLiftTutorialGameMode::OnPostLogin(AController* NewPlayer)
 {
+	// When a player joins, increment the player count
 	Super::OnPostLogin(NewPlayer);
 	playerCount++;
+
+	// Here we can also do more validation.
+	// This could be checking the joining players provided passcode and id to make sure they are allowed to join
 }
 
 void AGameLiftTutorialGameMode::Logout(AController* Exiting)
 {
+	// When a player leaves, decrement the player count
 	Super::Logout(Exiting);
 	playerCount--;
 }

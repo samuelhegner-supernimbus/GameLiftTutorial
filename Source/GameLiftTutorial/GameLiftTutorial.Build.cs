@@ -21,7 +21,6 @@ public class GameLiftTutorial : ModuleRules
 		
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
-			"GameLiftServerSDK",
 			"JsonUtilities",
 			"HTTP",
 			"Json"
