@@ -34,7 +34,6 @@ void AGameLiftTutorialGameMode::BeginPlay()
 #endif
 }
 
-
 void AGameLiftTutorialGameMode::InitGameLift()
 {
 	UE_LOG(GameLift, Log, TEXT("InitGameLift()"))
@@ -164,8 +163,8 @@ void AGameLiftTutorialGameMode::InitGameLift()
 	UE_LOG(GameLift, Log, TEXT("Calling Process Ready..."));
 
 	// Notify the GameLift service that the server process is ready to accept game sessions
-	auto processReadyOutcome = gameLiftSdkModule->ProcessReady(*processParameters);
-	
+	const auto processReadyOutcome = gameLiftSdkModule->ProcessReady(*processParameters);
+
 	if (processReadyOutcome.IsSuccess())
 	{
 		UE_LOG(GameLift, Log, TEXT("Process Ready Succeded"));
@@ -176,7 +175,7 @@ void AGameLiftTutorialGameMode::InitGameLift()
 		const auto processReadyError = processReadyOutcome.GetError();
 		UE_LOG(GameLift, Log, TEXT("ERROR: %s"), *processReadyError.m_errorMessage);
 	}
-	
+
 	UE_LOG(GameLift, Log, TEXT("Finished initialising GameLift"));
 }
 
@@ -215,8 +214,8 @@ void AGameLiftTutorialGameMode::InitBrainCloud()
 void AGameLiftTutorialGameMode::ShutDownGameLift() const
 {
 	// Notify the GameLift service, that we are shutting down the server. This will terminate the game session associated with this process
-	if(gameSessionStarted == false) return;
-	
+	if (gameSessionStarted == false) return;
+
 	gameLiftSdkModule->ProcessEnding();
 }
 
@@ -243,7 +242,7 @@ void AGameLiftTutorialGameMode::StartTimer()
 void AGameLiftTutorialGameMode::CheckDisconnectedPlayers()
 {
 	// If we aren't in an active game session, we don't need to worry about disconnected players
-	if(gameSessionStarted == false) return;
+	if (gameSessionStarted == false) return;
 
 	// If there aren't any players connected, count up the timeout timer. If the timer reaches the threshold, call the Timeout func
 	if (playerCount <= 0)
@@ -252,7 +251,7 @@ void AGameLiftTutorialGameMode::CheckDisconnectedPlayers()
 		{
 			EmptyServerTimeout();
 		}
-		
+
 		UE_LOG(GameMode, Log, TEXT("No players connected, shutting down game session in: %d"), secondsToShutDownEmptyServer-timerCounter);
 		timerCounter++;
 	}
@@ -266,8 +265,8 @@ void AGameLiftTutorialGameMode::CheckDisconnectedPlayers()
 void AGameLiftTutorialGameMode::EmptyServerTimeout() const
 {
 	// When the empty server timeout is reached, shut down GameLift, BrainCloud and finally the server
-	ShutDownGameLift();
 	ShutDownBrainCloud();
+	ShutDownGameLift();
 	ShutDownServer("All players disconnected. GameSession is complete. Shutting down server...");
 }
 
