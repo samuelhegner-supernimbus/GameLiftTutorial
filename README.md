@@ -74,6 +74,10 @@ BrainCloud account and project configured with:
    ```sh
    git submodule update
    ```
+4. Generate the projects VisualStudio solution file
+
+![Usage Screenshot][usage-screenshot]
+
 
 
 ## Usage
@@ -131,3 +135,5 @@ Project Link: [https://github.com/samuelhegner-supernimbus/GameLiftTutorial](htt
 [client-screenshot]: images/project-screeshot.png
 
 [usage-screenshot]: images/usage-screenshot.png
+
+[generate-solution-screenshot]: images/generate-solution-screenshot.png

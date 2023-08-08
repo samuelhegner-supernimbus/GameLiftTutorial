@@ -89,3 +89,6 @@ DerivedDataCache/*
 */fbx/*
 */psd/*
 */tga/*
+
+# Include GameLift files
+!GameLiftFiles/*
