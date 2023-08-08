@@ -45,6 +45,7 @@ To use this sample project, you'll need the following things installed:
   
 Optional:
 * AWS CLI (To test your dedicated server with a GameLift Anywhere Fleet)
+* CMAKE (To build the GameLift server SDK with different settings)
 
 #### Accounts
 Additionally you will need the following things configured. Everything below is described in details in the Tutorial series found here: >TutorialLink<
