@@ -74,9 +74,11 @@ BrainCloud account and project configured with:
    ```sh
    git submodule update
    ```
-4. Generate the projects VisualStudio solution file
+4. Generate the VisualStudio project files
 
-![Usage Screenshot][usage-screenshot]
+![Generate Solution][generate-solution-screenshot]
+
+5. 
 
 
 
