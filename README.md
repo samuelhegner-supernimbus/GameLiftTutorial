@@ -87,7 +87,8 @@ If you have all of the account prerequisites set up and you just want to hook up
 * SecretKey: The secret key of your BrainCloud app
 * LobbyName: The name you gave your BrainCloud lobby
 
-![Usage Screenshot][usage-screenshot]
+<img src="images/usage-screenshot.png" width=65% height=65%>
+
 
 Afterwards, you should be able to launch the client in the editor or from a packaged client build. If configured correctly, you'll join your GameLift-hosted server.
 
