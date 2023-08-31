@@ -92,3 +92,6 @@ DerivedDataCache/*
 
 # Include GameLift files
 !GameLiftFiles/*
+
+# Include the GameLift server SDK files
+!Plugins/GameLiftServerSDK/ThirdParty/GameLiftServerSDK/Win64/*
